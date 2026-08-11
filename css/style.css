@@ -311,6 +311,39 @@ main {
 .random-meta { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
 .random-card .modal-actions { justify-content: center; }
 
+/* ---------- копирование ---------- */
+
+.sr-actions { margin-left: auto; display: flex; gap: 2px; }
+.sr-item .icon-btn { opacity: 0.45; }
+.sr-item:hover .icon-btn { opacity: 1; }
+
+.btn-copy-all {
+  font-size: 12px; padding: 3px 10px; border-radius: 999px;
+  margin-left: 8px; vertical-align: middle;
+}
+
+.copy-menu {
+  position: fixed; z-index: 70; min-width: 250px; max-width: min(340px, 92vw);
+  padding: 6px; border-radius: 14px;
+  background: #141a2c; border: 1px solid var(--panel-border);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
+  animation: pop 0.14s ease;
+}
+.copy-menu button {
+  display: flex; align-items: flex-start; gap: 10px; width: 100%;
+  font: inherit; text-align: left; cursor: pointer; color: var(--text);
+  background: transparent; border: none; border-radius: 10px; padding: 9px 10px;
+  transition: background 0.13s;
+}
+.copy-menu button:hover { background: rgba(139, 92, 246, 0.16); }
+.copy-menu .cm-ico { font-size: 16px; line-height: 1.35; }
+.copy-menu .cm-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.copy-menu .cm-text b { font-size: 13.5px; font-weight: 600; }
+.copy-menu .cm-text i {
+  font-style: normal; font-size: 11.5px; color: var(--muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
 /* ---------- тосты ---------- */
 
 .toast-wrap { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 60; display: flex; flex-direction: column; gap: 8px; align-items: center; }
