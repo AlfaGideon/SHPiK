@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ШПиК — база пар слов для игры «Кто шпион»</title>
+<link rel="stylesheet" href="css/style.css?v=2">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🕵️</text></svg>">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-logo">🕵️</span>
+    <div>
+      <h1>ШПиК</h1>
+      <p>База пар слов для игры «Кто шпион»</p>
+    </div>
+  </div>
+
+  <div class="stats" id="stats">
+    <span class="stat-chip"><b id="statTotal">0</b> пар</span>
+    <span class="stat-chip"><b id="statGroups">0</b> групп</span>
+    <span class="stat-chip"><b id="statHard">0</b> сложных</span>
+  </div>
+
+  <div class="topbar-actions">
+    <button class="btn btn-ghost" id="btnRandom" title="Вытянуть случайную пару">🎲 Случайная</button>
+    <button class="btn btn-ghost" id="btnExport" title="Скачать базу в JSON">⬇ Экспорт</button>
+    <button class="btn btn-ghost" id="btnImport" title="Загрузить базу из JSON">⬆ Импорт</button>
+    <input type="file" id="fileImport" accept=".json,application/json" hidden>
+  </div>
+</header>
+
+<!-- ПОИСК -->
+<section class="search-section">
+  <div class="search-box">
+    <span class="search-icon">🔍</span>
+    <input id="searchInput" type="text" autocomplete="off" spellcheck="false"
+           placeholder="Введите одно слово — покажу все пары с ним (регистр не важен)…">
+    <label class="check partial-check" title="Искать по части слова, а не только целиком">
+      <input type="checkbox" id="partialCheck" checked>
+      <span>частичное совпадение</span>
+    </label>
+    <button class="btn btn-ghost btn-clear" id="btnClearSearch" title="Очистить">✕</button>
+  </div>
+  <div class="search-results" id="searchResults" hidden></div>
+</section>
+
+<main>
+  <!-- ДОБАВЛЕНИЕ -->
+  <aside class="panel add-panel">
+    <h2>➕ Добавить пару</h2>
+
+    <label class="field">
+      <span>Первое слово</span>
+      <input id="wordA" type="text" autocomplete="off" placeholder="например: чай">
+    </label>
+
+    <div class="pair-connector">⇄</div>
+
+    <label class="field">
+      <span>Второе слово</span>
+      <input id="wordB" type="text" autocomplete="off" placeholder="например: кофе">
+    </label>
+
+    <div class="auto-preview" id="autoPreview">
+      <div class="auto-row"><span class="auto-label">Категория</span><span class="chip chip-group" id="autoGroup">—</span></div>
+      <div class="auto-row"><span class="auto-label">Сложность</span><span class="chip" id="autoDiff">—</span></div>
+    </div>
+
+    <div class="manual-selects">
+      <label class="field">
+        <span>Категория вручную</span>
+        <select id="groupSelect"></select>
+      </label>
+      <label class="field">
+        <span>Сложность вручную</span>
+        <select id="diffSelect"></select>
+      </label>
+    </div>
+
+    <button class="btn btn-primary btn-add" id="btnAdd">Добавить в базу</button>
+    <p class="hint">Категория и сложность определяются автоматически, но их можно изменить вручную до сохранения или потом через ✏️.</p>
+  </aside>
+
+  <!-- БАЗА -->
+  <section class="panel db-panel">
+    <div class="db-controls">
+      <h2>📚 База пар</h2>
+      <div class="controls-row">
+        <div class="seg" id="groupBySeg">
+          <button data-gb="group" class="active">по группам</button>
+          <button data-gb="difficulty">по сложности</button>
+          <button data-gb="flat">списком</button>
+        </div>
+        <select id="sortSelect" class="sort-select" title="Сортировка">
+          <option value="new">сначала новые</option>
+          <option value="old">сначала старые</option>
+          <option value="alpha">по алфавиту</option>
+          <option value="diff">по сложности ↑</option>
+        </select>
+      </div>
+      <div class="diff-filter" id="diffFilter">
+        <button data-df="all" class="active">Все</button>
+        <button data-df="0" class="df0">Лёгкие</button>
+        <button data-df="1" class="df1">Средние</button>
+        <button data-df="2" class="df2">Сложные</button>
+        <button data-df="3" class="df3">Эксперт</button>
+      </div>
+    </div>
+
+    <div id="dbList" class="db-list"></div>
+  </section>
+</main>
+
+<footer class="foot">
+  Данные хранятся локально в вашем браузере (localStorage). Экспортируйте базу, чтобы перенести её на другое устройство.
+</footer>
+
+<!-- МОДАЛКА РЕДАКТИРОВАНИЯ -->
+<div class="modal" id="editModal" hidden>
+  <div class="modal-card">
+    <h3>✏️ Редактировать пару</h3>
+    <label class="field"><span>Первое слово</span><input id="editA" type="text" autocomplete="off"></label>
+    <label class="field"><span>Второе слово</span><input id="editB" type="text" autocomplete="off"></label>
+    <div class="manual-selects">
+      <label class="field"><span>Категория</span><select id="editGroupSelect"></select></label>
+      <label class="field"><span>Сложность</span><select id="editDiffSelect"></select></label>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="btnEditCancel">Отмена</button>
+      <button class="btn btn-primary" id="btnEditSave">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<!-- МОДАЛКА СЛУЧАЙНОЙ ПАРЫ -->
+<div class="modal" id="randomModal" hidden>
+  <div class="modal-card random-card">
+    <div id="randomContent"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="btnRandomAgain">🎲 Ещё одна</button>
+      <button class="btn btn-primary" id="btnRandomClose">Закрыть</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script src="js/lexicon.js?v=2"></script>
+<script src="js/logic.js?v=2"></script>
+<script src="js/app.js?v=2"></script>
+</body>
+</html>
