@@ -84,6 +84,151 @@
     }, 2600);
   }
 
+  /* ---------- копирование пары ---------- */
+
+  // Копирование работает и без https/секретного контекста: есть запасной путь.
+  function copyText(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+      return navigator.clipboard.writeText(text).catch(() => legacyCopy(text));
+    }
+    return legacyCopy(text);
+  }
+
+  function legacyCopy(text) {
+    return new Promise((resolve, reject) => {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "");
+      ta.style.cssText = "position:fixed;top:0;left:-9999px;opacity:0";
+      document.body.appendChild(ta);
+      ta.select();
+      ta.setSelectionRange(0, ta.value.length);
+      let ok = false;
+      try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+      ta.remove();
+      ok ? resolve() : reject(new Error("copy failed"));
+    });
+  }
+
+  function pairLabel(p) {
+    const sub = p.sub && p.sub !== p.group && p.sub !== "без категории" ? ` · ${p.sub}` : "";
+    return `${p.icon || "🎲"} ${p.group}${sub}`;
+  }
+
+  // Форматы копирования пары
+  const COPY_FORMATS = {
+    plain: {
+      icon: "📋",
+      title: "Пара текстом",
+      hint: p => `${p.a} — ${p.b}`,
+      make: p => `${p.a} — ${p.b}`
+    },
+    full: {
+      icon: "🏷️",
+      title: "Пара с категорией и сложностью",
+      hint: p => `${p.a} — ${p.b} (${p.group}, ${(DIFFICULTIES[p.difficulty] || DIFFICULTIES[0]).name})`,
+      make: p => `${p.a} — ${p.b} (${pairLabel(p)}, сложность: ${(DIFFICULTIES[p.difficulty] || DIFFICULTIES[0]).name})`
+    },
+    prompt: {
+      icon: "🤖",
+      title: "Промпт для ИИ: объяснения для игры",
+      hint: () => "готовый запрос для ChatGPT и т.п.",
+      make: aiPrompt
+    }
+  };
+
+  function aiPrompt(p) {
+    const diff = (DIFFICULTIES[p.difficulty] || DIFFICULTIES[0]).name;
+    return `Игра «Кто шпион»: мирным жителям выдают слово «${p.a}», шпиону — похожее слово «${p.b}» (категория: ${pairLabel(p)}, сложность: ${diff}).
+
+Придумай 10 коротких объяснений-намёков (по одной фразе), которые:
+1) звучат естественно и подходят СРАЗУ к обоим словам — «${p.a}» и «${p.b}»;
+2) не называют сами слова и однокоренные к ним;
+3) не выдают, какое именно слово у говорящего.
+
+Отдельно добавь:
+- 3 самых рискованных намёка, которые сразу выдают слово «${p.a}» (чего говорить не стоит);
+- 3 вопроса, которыми можно вычислить шпиона;
+- 1–2 фразы-отмазки для шпиона, если он не понял, о чём речь.`;
+  }
+
+  // Множественное копирование (например, всех результатов поиска)
+  function pairsToText(list, fmt) {
+    const f = COPY_FORMATS[fmt] || COPY_FORMATS.plain;
+    return list.map(p => f.make(p)).join("\n");
+  }
+
+  function copyPair(id, fmt) {
+    const p = pairs.find(x => x.id === id);
+    if (!p) return;
+    const f = COPY_FORMATS[fmt] || COPY_FORMATS.plain;
+    copyText(f.make(p)).then(
+      () => toast(fmt === "prompt" ? "Промпт скопирован — вставьте в чат с ИИ" : `Скопировано: ${p.a} — ${p.b}`),
+      () => toast("Браузер не дал скопировать — выделите текст вручную", "err")
+    );
+  }
+
+  function copyBtn(id, title = "Скопировать пару") {
+    return `<button class="icon-btn btn-copy" data-copy="${id}" title="${esc(title)}">📋</button>`;
+  }
+
+  /* ---- меню выбора формата ---- */
+
+  let copyMenuEl = null;
+
+  function closeCopyMenu() {
+    if (copyMenuEl) { copyMenuEl.remove(); copyMenuEl = null; }
+  }
+
+  function openCopyMenu(btn, id) {
+    const p = pairs.find(x => x.id === id);
+    if (!p) return;
+    closeCopyMenu();
+
+    const menu = document.createElement("div");
+    menu.className = "copy-menu";
+    menu.innerHTML = Object.entries(COPY_FORMATS).map(([key, f]) =>
+      `<button data-fmt="${key}">
+        <span class="cm-ico">${f.icon}</span>
+        <span class="cm-text"><b>${esc(f.title)}</b><i>${esc(f.hint(p))}</i></span>
+      </button>`
+    ).join("");
+    document.body.appendChild(menu);
+    copyMenuEl = menu;
+
+    const r = btn.getBoundingClientRect();
+    const w = menu.offsetWidth, h = menu.offsetHeight;
+    let left = Math.min(r.left, window.innerWidth - w - 10);
+    let top = r.bottom + 6;
+    if (top + h > window.innerHeight - 10) top = Math.max(10, r.top - h - 6);
+    menu.style.left = Math.max(10, left) + "px";
+    menu.style.top = top + "px";
+
+    menu.addEventListener("click", e => {
+      const b = e.target.closest("button[data-fmt]");
+      if (!b) return;
+      copyPair(id, b.dataset.fmt);
+      closeCopyMenu();
+    });
+  }
+
+  document.addEventListener("click", e => {
+    const btn = e.target.closest("[data-copy]");
+    if (btn) {
+      e.preventDefault();
+      e.stopPropagation();
+      // Alt/Shift + клик — сразу простой текст, без меню
+      if (e.altKey || e.shiftKey) { closeCopyMenu(); copyPair(btn.dataset.copy, "plain"); return; }
+      if (copyMenuEl && copyMenuEl.dataset.owner === btn.dataset.copy) { closeCopyMenu(); return; }
+      openCopyMenu(btn, btn.dataset.copy);
+      if (copyMenuEl) copyMenuEl.dataset.owner = btn.dataset.copy;
+      return;
+    }
+    if (copyMenuEl && !e.target.closest(".copy-menu")) closeCopyMenu();
+  });
+  window.addEventListener("resize", closeCopyMenu);
+  window.addEventListener("scroll", closeCopyMenu, true);
+
   function diffBadge(d, auto) {
     const info = DIFFICULTIES[d] || DIFFICULTIES[0];
     return `<span class="chip chip-diff df${info.id}" title="Сложность: ${info.name}${auto ? " (авто)" : " (вручную)"}">${info.name}${auto ? "" : " ✎"}</span>`;
@@ -285,8 +430,11 @@
 
   /* ---------- рендер поиска ---------- */
 
+  let lastMatches = [];
+
   function renderSearch() {
     const q = ui.query.trim();
+    lastMatches = [];
     if (!q) { searchResults.hidden = true; searchResults.innerHTML = ""; return; }
 
     const matches = pairs.filter(p =>
@@ -302,7 +450,11 @@
       if (!seen.has(k)) { seen.add(k); partners.push(other); }
     });
 
-    let html = `<div class="sr-head">Найдено <b>${matches.length}</b> ${plural(matches.length, "пара", "пары", "пар")} со словом «${esc(q)}»</div>`;
+    lastMatches = matches;
+
+    let html = `<div class="sr-head">Найдено <b>${matches.length}</b> ${plural(matches.length, "пара", "пары", "пар")} со словом «${esc(q)}»`
+      + (matches.length ? ` <button class="btn btn-ghost btn-copy-all" id="btnCopyFound" title="Скопировать все найденные пары списком">📋 копировать все</button>` : "")
+      + `</div>`;
 
     if (matches.length === 0) {
       html += `<div class="empty">😕 Ничего не найдено. Добавьте пару с этим словом через форму слева.</div>`;
@@ -319,6 +471,7 @@
           <span class="sr-words">${ha} <i>⇄</i> ${hb}</span>
           ${groupChip(p.group, p.icon, p.sub, p.auto)}
           ${diffBadge(p.difficulty, p.auto)}
+          <span class="sr-actions">${copyBtn(p.id)}</span>
         </div>`;
       }).join("") + `</div>`;
     }
@@ -346,6 +499,7 @@
         </span>
       </div>
       <div class="pair-actions">
+        ${copyBtn(p.id)}
         <button class="icon-btn btn-edit" data-id="${p.id}" title="Редактировать">✏️</button>
         <button class="icon-btn btn-del" data-id="${p.id}" title="Удалить">🗑</button>
       </div>
@@ -459,9 +613,11 @@
   /* ---------- случайная пара ---------- */
 
   const randomModal = $("randomModal");
+  let randomId = null;
   function showRandom() {
     if (!pairs.length) { toast("База пуста — сначала добавьте пары", "warn"); return; }
     const p = pairs[Math.floor(Math.random() * pairs.length)];
+    randomId = p.id;
     $("randomContent").innerHTML = `
       <div class="random-words">${esc(p.a)} <i>⇄</i> ${esc(p.b)}</div>
       <div class="random-meta">${groupChip(p.group, p.icon, p.sub, p.auto)} ${diffBadge(p.difficulty, p.auto)}</div>`;
@@ -484,7 +640,7 @@
     if (e.key === "/" && document.activeElement !== searchInput && !["INPUT", "SELECT", "TEXTAREA"].includes(document.activeElement.tagName)) {
       e.preventDefault(); searchInput.focus();
     }
-    if (e.key === "Escape") { closeEdit(); randomModal.hidden = true; }
+    if (e.key === "Escape") { closeCopyMenu(); closeEdit(); randomModal.hidden = true; }
   });
 
   $("groupBySeg").addEventListener("click", e => {
@@ -515,6 +671,15 @@
   });
 
   searchResults.addEventListener("click", e => {
+    if (e.target.closest("#btnCopyFound")) {
+      if (!lastMatches.length) return;
+      const text = pairsToText(lastMatches, "plain");
+      copyText(text).then(
+        () => toast(`Скопировано ${lastMatches.length} ${plural(lastMatches.length, "пара", "пары", "пар")}`),
+        () => toast("Браузер не дал скопировать", "err")
+      );
+      return;
+    }
     const chip = e.target.closest("[data-partner]");
     if (chip) { searchInput.value = chip.dataset.partner; ui.query = chip.dataset.partner; renderSearch(); }
   });
@@ -534,6 +699,8 @@
   $("btnRandom").addEventListener("click", showRandom);
   $("btnRandomAgain").addEventListener("click", showRandom);
   $("btnRandomClose").addEventListener("click", () => randomModal.hidden = true);
+  $("btnRandomCopy").addEventListener("click", () => { if (randomId) copyPair(randomId, "plain"); });
+  $("btnRandomPrompt").addEventListener("click", () => { if (randomId) copyPair(randomId, "prompt"); });
   randomModal.addEventListener("click", e => { if (e.target === randomModal) randomModal.hidden = true; });
 
   /* ---------- init ---------- */

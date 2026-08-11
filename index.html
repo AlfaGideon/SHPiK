@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ШПиК — база пар слов для игры «Кто шпион»</title>
-<link rel="stylesheet" href="css/style.css?v=2">
+<link rel="stylesheet" href="css/style.css?v=3">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🕵️</text></svg>">
 </head>
 <body>
@@ -140,6 +140,8 @@
   <div class="modal-card random-card">
     <div id="randomContent"></div>
     <div class="modal-actions">
+      <button class="btn btn-ghost" id="btnRandomCopy" title="Скопировать пару текстом">📋 Копировать</button>
+      <button class="btn btn-ghost" id="btnRandomPrompt" title="Скопировать готовый запрос к ИИ за объяснениями">🤖 Промпт</button>
       <button class="btn btn-ghost" id="btnRandomAgain">🎲 Ещё одна</button>
       <button class="btn btn-primary" id="btnRandomClose">Закрыть</button>
     </div>
@@ -148,8 +150,8 @@
 
 <div class="toast-wrap" id="toastWrap"></div>
 
-<script src="js/lexicon.js?v=2"></script>
-<script src="js/logic.js?v=2"></script>
-<script src="js/app.js?v=2"></script>
+<script src="js/lexicon.js?v=3"></script>
+<script src="js/logic.js?v=3"></script>
+<script src="js/app.js?v=3"></script>
 </body>
 </html>
